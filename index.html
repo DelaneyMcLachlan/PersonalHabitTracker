@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Daily Habit Tracker</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>My Daily Habits</h1>
+  <ul id="habitList">
+    <li><input type="checkbox"> Meditate</li>
+    <li><input type="checkbox"> Exercise</li>
+    <li><input type="checkbox"> Journal</li>
+    <li><input type="checkbox"> Read</li>
+  </ul>
+
+  <script>
+    const today = new Date().toDateString();
+    if (localStorage.getItem('lastVisit') !== today) {
+      localStorage.clear();
+      localStorage.setItem('lastVisit', today);
+    }
+
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+    checkboxes.forEach((checkbox, i) => {
+      checkbox.checked = localStorage.getItem('checkbox' + i) === 'true';
+      checkbox.addEventListener('change', () => {
+        localStorage.setItem('checkbox' + i, checkbox.checked);
+      });
+    });
+  </script>
+</body>
+</html>

@@ -3,36 +3,75 @@
 <head>
   <meta charset="UTF-8">
   <title>Daily Habit Tracker</title>
-  <link rel="manifest" href="manifest.json">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="style.css">
   <link rel="apple-touch-icon" href="habiticon.png">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <h1>My Daily Habits</h1>
-  <ul id="habitList">
-    <li><input type="checkbox"> Meditate</li>
-    <li><input type="checkbox"> Exercise</li>
-    <li><input type="checkbox"> Journal</li>
-    <li><input type="checkbox"> Read</li>
-  </ul>
+
+  <ul id="habitList"></ul>
+
+  <div id="addHabitForm">
+    <input type="text" id="newHabitInput" placeholder="New habit...">
+    <button onclick="addHabit()">Add</button>
+  </div>
 
   <script>
     const today = new Date().toDateString();
     if (localStorage.getItem('lastVisit') !== today) {
-      localStorage.clear();
+      // Reset only checkboxes, not the habit names
+      let i = 0;
+      while (localStorage.getItem('habit' + i)) {
+        localStorage.setItem('checkbox' + i, false);
+        i++;
+      }
       localStorage.setItem('lastVisit', today);
     }
 
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach((checkbox, i) => {
-      checkbox.checked = localStorage.getItem('checkbox' + i) === 'true';
-      checkbox.addEventListener('change', () => {
-        localStorage.setItem('checkbox' + i, checkbox.checked);
-      });
-    });
+    function rebuildHabits() {
+      const habitList = document.getElementById('habitList');
+      habitList.innerHTML = '';
+      let i = 0;
+      while (true) {
+        const habit = localStorage.getItem('habit' + i);
+        if (!habit) break;
+
+        const li = document.createElement('li');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = localStorage.getItem('checkbox' + i) === 'true';
+
+        checkbox.addEventListener('change', () => {
+          localStorage.setItem('checkbox' + i, checkbox.checked);
+        });
+
+        li.appendChild(checkbox);
+        li.appendChild(document.createTextNode(" " + habit));
+        habitList.appendChild(li);
+        i++;
+      }
+    }
+
+    function addHabit() {
+      const input = document.getElementById('newHabitInput');
+      const habit = input.value.trim();
+      if (!habit) return;
+
+      let i = 0;
+      while (localStorage.getItem('habit' + i)) i++;
+
+      localStorage.setItem('habit' + i, habit);
+      localStorage.setItem('checkbox' + i, false);
+      input.value = '';
+      rebuildHabits();
+    }
+
+    window.addEventListener('DOMContentLoaded', rebuildHabits);
   </script>
 </body>
 </html>
+

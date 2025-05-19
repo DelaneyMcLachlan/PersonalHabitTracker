@@ -1,22 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Daily Habit Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="habiticon.png">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Habit Tracker</title>
+  <link rel="apple-touch-icon" href="habiticon.png" />
+  <link rel="manifest" href="manifest.json" />
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 600px;
+      margin: auto;
+    }
+    h1 { text-align: center; }
+    li {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+    }
+    .emoji {
+      font-size: 1.5rem;
+      margin-right: 12px;
+    }
+    .habit-text {
+      flex-grow: 1;
+    }
+    .color-option {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      margin-right: 6px;
+      display: inline-block;
+    }
+    .color-option.selected {
+      border-color: black;
+    }
+    button { margin-left: 10px; }
+    select, input { margin-bottom: 10px; }
+    .input-group { margin-bottom: 10px; }
+  </style>
 </head>
 <body>
   <h1>My Daily Habits</h1>
+
+  <select id="filterSelect" onchange="rebuildHabits()">
+    <option value="All">All</option>
+  </select>
+
   <ul id="habitList"></ul>
-  <input id="newHabitInput" placeholder="New habit..." />
-  <button onclick="addHabit()">Add</button>
+
+  <div style="margin-top: 20px;">
+    <div class="input-group">
+      <input id="emojiInput" placeholder="Emoji" style="width: 60px;" />
+      <input id="newHabitInput" placeholder="Habit title..." style="width: 160px;" />
+    </div>
+    <div class="input-group">
+      <select id="existingTagSelect" onchange="handleTagSelect()" style="width: 160px;">
+        <option value="">New tag...</option>
+      </select>
+      <input id="tagInput" placeholder="Tag (e.g. Health)" style="width: 160px;" />
+    </div>
+    <div id="colorPicker" style="margin-bottom: 10px;"></div>
+    <button onclick="addHabit()">Add</button>
+  </div>
 
   <script>
+    const colors = [
+      'red', 'orange', 'gold', 'green', 'teal',
+      'blue', 'indigo', 'purple', 'pink', 'gray'
+    ];
+    let selectedColor = colors[0];
+
     function getTodayESTString() {
       const now = new Date();
       const utc = now.getTime() + now.getTimezoneOffset() * 60000;
@@ -32,6 +91,8 @@
 
     function saveHabits(habits) {
       localStorage.setItem("habits", JSON.stringify(habits));
+      updateFilterOptions(habits);
+      updateTagDropdown(habits);
     }
 
     function resetIfNewDay(habits) {
@@ -48,9 +109,17 @@
       const list = document.getElementById("habitList");
       list.innerHTML = "";
       const habits = loadHabits();
+      const filter = document.getElementById("filterSelect").value;
 
       habits.forEach((habit, index) => {
+        if (filter !== "All" && habit.tag !== filter) return;
+
         const li = document.createElement("li");
+        li.style.backgroundColor = habit.color || 'lightgray';
+
+        const emoji = document.createElement("span");
+        emoji.className = "emoji";
+        emoji.textContent = habit.emoji || '';
 
         const checkbox = document.createElement("input");
         checkbox.type = "checkbox";
@@ -60,7 +129,9 @@
           saveHabits(habits);
         };
 
-        const label = document.createTextNode(" " + habit.name + " ");
+        const label = document.createElement("span");
+        label.className = "habit-text";
+        label.textContent = " " + habit.name;
 
         const del = document.createElement("button");
         del.textContent = "❌";
@@ -70,6 +141,7 @@
           rebuildHabits();
         };
 
+        li.appendChild(emoji);
         li.appendChild(checkbox);
         li.appendChild(label);
         li.appendChild(del);
@@ -78,19 +150,109 @@
     }
 
     function addHabit() {
-      const input = document.getElementById("newHabitInput");
-      const name = input.value.trim();
-      if (!name) return;
+      const emoji = document.getElementById("emojiInput").value.trim();
+      const name = document.getElementById("newHabitInput").value.trim();
+      const tagDropdown = document.getElementById("existingTagSelect");
+      const newTagInput = document.getElementById("tagInput");
+      const tag = tagDropdown.value || newTagInput.value.trim();
+      if (!name || !tag) return;
+
       const habits = loadHabits();
-      habits.push({ name, checked: false });
+
+      let color = selectedColor;
+      const existingTag = habits.find(h => h.tag === tag);
+      if (existingTag) {
+        if (existingTag.color !== selectedColor && !tagDropdown.value) {
+          alert(`The tag "${tag}" is already associated with another color.`);
+          return;
+        }
+        color = existingTag.color;
+      }
+
+      habits.push({ name, emoji, tag, color, checked: false });
       saveHabits(habits);
-      input.value = "";
+      document.getElementById("emojiInput").value = '';
+      document.getElementById("newHabitInput").value = '';
+      newTagInput.value = '';
+      tagDropdown.value = '';
+      toggleColorPicker(true);
       rebuildHabits();
     }
 
-    // Initial run
+    function setupColorPicker() {
+      const picker = document.getElementById("colorPicker");
+      picker.innerHTML = '';
+      colors.forEach(color => {
+        const btn = document.createElement("div");
+        btn.className = "color-option";
+        btn.style.backgroundColor = color;
+        if (color === selectedColor) btn.classList.add("selected");
+
+        btn.onclick = () => {
+          selectedColor = color;
+          document.querySelectorAll(".color-option").forEach(opt => opt.classList.remove("selected"));
+          btn.classList.add("selected");
+        };
+
+        picker.appendChild(btn);
+      });
+    }
+
+    function toggleColorPicker(show) {
+      document.getElementById("colorPicker").style.display = show ? 'block' : 'none';
+    }
+
+    function handleTagSelect() {
+      const tagDropdown = document.getElementById("existingTagSelect");
+      const newTagInput = document.getElementById("tagInput");
+
+      if (tagDropdown.value) {
+        newTagInput.disabled = true;
+        const habits = loadHabits();
+        const matched = habits.find(h => h.tag === tagDropdown.value);
+        if (matched) {
+          selectedColor = matched.color;
+        }
+        toggleColorPicker(false);
+      } else {
+        newTagInput.disabled = false;
+        toggleColorPicker(true);
+      }
+    }
+
+    function updateFilterOptions(habits) {
+      const select = document.getElementById("filterSelect");
+      const selected = select.value;
+      const tags = Array.from(new Set(habits.map(h => h.tag)));
+
+      select.innerHTML = `<option value="All">All</option>`;
+      tags.forEach(t => {
+        const option = document.createElement("option");
+        option.value = t;
+        option.textContent = t;
+        if (t === selected) option.selected = true;
+        select.appendChild(option);
+      });
+    }
+
+    function updateTagDropdown(habits) {
+      const dropdown = document.getElementById("existingTagSelect");
+      const tags = Array.from(new Set(habits.map(h => h.tag)));
+      dropdown.innerHTML = `<option value="">New tag...</option>`;
+      tags.forEach(tag => {
+        const opt = document.createElement("option");
+        opt.value = tag;
+        opt.textContent = tag;
+        dropdown.appendChild(opt);
+      });
+    }
+
+    // Init
     const habits = loadHabits();
     resetIfNewDay(habits);
+    setupColorPicker();
+    updateTagDropdown(habits);
+    updateFilterOptions(habits);
     rebuildHabits();
   </script>
 </body>

@@ -21,15 +21,25 @@
   </div>
 
   <script>
-    const today = new Date().toDateString();
-    if (localStorage.getItem('lastVisit') !== today) {
-      // Reset only checkboxes, not the habit names
-      let i = 0;
-      while (localStorage.getItem('habit' + i)) {
-        localStorage.setItem('checkbox' + i, false);
-        i++;
+    // Convert to EST and return date string
+    function getTodayEST() {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const estOffset = -5 * 60 * 60000; // EST = UTC-5
+      const estDate = new Date(utc + estOffset);
+      return estDate.toDateString();
+    }
+
+    function resetCheckboxesIfNeeded() {
+      const today = getTodayEST();
+      if (localStorage.getItem('lastReset') !== today) {
+        let i = 0;
+        while (localStorage.getItem('habit' + i)) {
+          localStorage.setItem('checkbox' + i, false);
+          i++;
+        }
+        localStorage.setItem('lastReset', today);
       }
-      localStorage.setItem('lastVisit', today);
     }
 
     function rebuildHabits() {
@@ -41,6 +51,8 @@
         if (!habit) break;
 
         const li = document.createElement('li');
+        li.setAttribute('data-index', i);
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.checked = localStorage.getItem('checkbox' + i) === 'true';
@@ -49,9 +61,18 @@
           localStorage.setItem('checkbox' + i, checkbox.checked);
         });
 
+        const label = document.createTextNode(" " + habit + " ");
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = '❌';
+        deleteBtn.style.marginLeft = '10px';
+        deleteBtn.onclick = () => deleteHabit(i);
+
         li.appendChild(checkbox);
-        li.appendChild(document.createTextNode(" " + habit));
+        li.appendChild(label);
+        li.appendChild(deleteBtn);
         habitList.appendChild(li);
+
         i++;
       }
     }
@@ -70,8 +91,28 @@
       rebuildHabits();
     }
 
-    window.addEventListener('DOMContentLoaded', rebuildHabits);
+    function deleteHabit(index) {
+      localStorage.removeItem('habit' + index);
+      localStorage.removeItem('checkbox' + index);
+
+      // Shift following habits up
+      let i = index + 1;
+      while (localStorage.getItem('habit' + i)) {
+        localStorage.setItem('habit' + (i - 1), localStorage.getItem('habit' + i));
+        localStorage.setItem('checkbox' + (i - 1), localStorage.getItem('checkbox' + i));
+        i++;
+      }
+
+      localStorage.removeItem('habit' + (i - 1));
+      localStorage.removeItem('checkbox' + (i - 1));
+      rebuildHabits();
+    }
+
+    // Main flow
+    window.addEventListener('DOMContentLoaded', () => {
+      resetCheckboxesIfNeeded();
+      rebuildHabits();
+    });
   </script>
 </body>
 </html>
-
